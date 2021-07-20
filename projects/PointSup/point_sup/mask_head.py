@@ -4,6 +4,7 @@ from typing import Any, List
 
 from detectron2.modeling import ROI_MASK_HEAD_REGISTRY
 from detectron2.modeling.roi_heads.mask_head import MaskRCNNConvUpsampleHead, mask_rcnn_inference
+from detectron2.projects.point_rend import ImplicitPointRendMaskHead
 from detectron2.projects.point_rend.point_features import point_sample
 from detectron2.projects.point_rend.point_head import roi_mask_point_loss
 from detectron2.structures import Instances
@@ -11,6 +12,7 @@ from detectron2.structures import Instances
 from .point_utils import get_point_coords_from_point_annotation
 
 __all__ = [
+    "ImplicitPointRendPointSupHead",
     "MaskRCNNConvUpsamplePointSupHead",
 ]
 
@@ -51,8 +53,6 @@ class MaskRCNNConvUpsamplePointSupHead(MaskRCNNConvUpsampleHead):
                 return {"loss_mask": x.sum() * 0}
 
             # Training with point supervision
-            # Sanity check: annotation should not contain gt_masks
-            assert not instances[0].has("gt_masks")
             point_coords, point_labels = get_point_coords_from_point_annotation(instances)
 
             mask_logits = point_sample(
@@ -65,3 +65,13 @@ class MaskRCNNConvUpsamplePointSupHead(MaskRCNNConvUpsampleHead):
         else:
             mask_rcnn_inference(x, instances)
             return instances
+
+
+@ROI_MASK_HEAD_REGISTRY.register()
+class ImplicitPointRendPointSupHead(ImplicitPointRendMaskHead):
+    def _uniform_sample_train_points(self, instances):
+        assert self.training
+        # Please keep in mind that "gt_masks" is not used in this mask head.
+        point_coords, point_labels = get_point_coords_from_point_annotation(instances)
+
+        return point_coords, point_labels
